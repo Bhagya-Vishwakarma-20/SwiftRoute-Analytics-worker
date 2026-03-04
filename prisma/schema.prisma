@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  username String
+  password String
+}
+
+model token {
+  id    Int    @id @default(autoincrement())
+  token String @unique
+}
+
+model url {
+  id        Int       @id @default(autoincrement())
+  targetUrl String
+  code      String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+}
+
+
+model Click {
+  id String @id @default(uuid())
+  linkId String
+  ip  String ?
+  country String?
+  userAgent String?
+  referrer String?
+  timestamp DateTime @default(now())
+
+}
