@@ -39,7 +39,7 @@ const getStats = async () => {
     const since24h = new Date(Date.now() - DAY_MS);
     const since30d = new Date(Date.now() - 30 * DAY_MS);
 
-    const [total, last24h, distinct, topLinks, countries, referrers, daily, recent, cities] = await Promise.all([
+    const [total, last24h, distinct, topLinks, countries, referrers, daily, recent, cities, sources] = await Promise.all([
         prisma.click.count(),
         prisma.click.count({ where: { timestamp: { gte: since24h } } }),
         prisma.$queryRaw`SELECT COUNT(DISTINCT "linkId") AS count FROM "Click"`,
@@ -71,6 +71,11 @@ const getStats = async () => {
             _count: { _all: true },
             orderBy: { _count: { city: 'desc' } },
             take: 15
+        }),
+        prisma.click.groupBy({
+            by: ['geoSource'],
+            _count: { _all: true },
+            orderBy: { _count: { geoSource: 'desc' } }
         })
     ]);
 
@@ -85,6 +90,7 @@ const getStats = async () => {
         countries: countries.map(r => ({ country: r.country || 'Unknown', count: r._count._all })),
         referrers: referrers.map(r => ({ referrer: r.referrer || 'Direct / none', count: r._count._all })),
         topCities: cities.map(r => ({ city: r.city, region: r.region, country: r.country, count: r._count._all })),
+        locationSources: sources.map(r => ({ source: r.geoSource || 'unknown', count: r._count._all })),
         clicksPerDay: perDay,
         recentClicks: recent.map(c => ({
             id: c.id,
@@ -95,6 +101,7 @@ const getStats = async () => {
             region: c.region,
             referrer: c.referrer,
             userAgent: c.userAgent,
+            isp: c.isp,
             ip: c.ip
         }))
     };
@@ -212,7 +219,7 @@ const renderLink = (l) => {
         : escapeHtml(l.linkId);
     const cities = l.cities.map(r => `<tr><td>${escapeHtml(r.city)}</td><td>${escapeHtml(r.region)}</td><td>${escapeHtml(r.country)}</td><td class="num">${r.count}</td></tr>`);
     const countries = l.countries.map(r => `<tr><td>${escapeHtml(r.country)}</td><td class="num">${r.count}</td></tr>`);
-    const clicks = l.clicks.map(c => `<tr><td><a href="${clickHref(c.id)}">${escapeHtml(fmtTime(c.timestamp))}</a></td><td>${escapeHtml(locationOf(c))}</td><td class="num">${c.accuracyRadius == null ? '' : '&plusmn;' + Number(c.accuracyRadius) + ' km'}</td><td class="wrap">${escapeHtml(c.referrer)}</td><td class="wrap">${escapeHtml(truncate(c.userAgent, 60))}</td><td>${escapeHtml(c.ip)}</td></tr>`);
+    const clicks = l.clicks.map(c => `<tr><td><a href="${clickHref(c.id)}">${escapeHtml(fmtTime(c.timestamp))}</a></td><td>${escapeHtml(locationOf(c))}</td><td class="num">${c.accuracyRadius == null ? '' : '&plusmn;' + Number(c.accuracyRadius) + ' km'}</td><td class="wrap">${escapeHtml(c.referrer)}</td><td class="wrap">${escapeHtml(truncate(c.userAgent, 60))}</td><td class="wrap">${escapeHtml(c.isp)}</td><td>${escapeHtml(c.ip)}</td></tr>`);
 
     return layout('Link analytics', `${BACK}
 <h1>Link analytics</h1>
@@ -227,7 +234,7 @@ const renderLink = (l) => {
 <div class="card"><h2>Clicks by city</h2>${table(['City', 'Region', 'Country', 'Clicks'], cities)}</div>
 <div class="card"><h2>Clicks by country</h2>${table(['Country', 'Clicks'], countries)}</div>
 </div>
-<div class="card" style="margin-top:12px"><h2>Latest clicks (up to 200)</h2>${table(['Time (UTC)', 'Location', 'Radius', 'Referrer', 'User agent', 'IP'], clicks)}</div>`);
+<div class="card" style="margin-top:12px"><h2>Latest clicks (up to 200)</h2>${table(['Time (UTC)', 'Location', 'Radius', 'Referrer', 'User agent', 'ISP', 'IP'], clicks)}</div>`);
 };
 
 const renderClick = (c) => {
@@ -242,8 +249,10 @@ const renderClick = (c) => {
         const bbox = [lon - d, lat - d, lon + d, lat + d].map(Number).join(',');
         const embed = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&amp;layer=mapnik&amp;marker=${lat},${lon}`;
         const full = `https://www.openstreetmap.org/?mlat=${lat}&amp;mlon=${lon}#map=10/${lat}/${lon}`;
-        const radius = c.accuracyRadius == null ? '' : `, &plusmn;${Number(c.accuracyRadius)} km`;
-        coords = `${lat}, ${lon} <span class="muted">(approximate${radius})</span>`;
+        const note = c.geoSource === 'ipinfo'
+            ? 'approximate (city-level)'
+            : 'approximate' + (c.accuracyRadius == null ? '' : `, &plusmn;${Number(c.accuracyRadius)} km`);
+        coords = `${lat}, ${lon} <span class="muted">(${note})</span>`;
         map = `<div class="card" style="margin-top:12px"><h2>Map</h2><iframe src="${embed}" loading="lazy" referrerpolicy="no-referrer"></iframe><p><a href="${full}" target="_blank" rel="noopener noreferrer">View larger map on OpenStreetMap</a></p></div>`;
     }
     return layout('Click detail', `${BACK}
@@ -255,7 +264,10 @@ ${row('Link', `<a href="${linkHref(c.linkId)}">${escapeHtml(c.linkId)}</a>`)}
 ${row('Location', escapeHtml(locationOf(c)) || '<span class="muted">Unknown</span>')}
 ${row('Country', escapeHtml(c.country))}
 ${hasCoords ? row('Coordinates', coords) : ''}
+${row('Postal', escapeHtml(c.postal))}
 ${row('Timezone', escapeHtml(c.timezone))}
+${row('ISP', escapeHtml(c.isp))}
+${row('Location source', escapeHtml(c.geoSource || 'unknown'))}
 ${row('IP', escapeHtml(c.ip))}
 ${row('Referrer', escapeHtml(c.referrer))}
 ${row('User agent', escapeHtml(c.userAgent))}
@@ -269,7 +281,8 @@ const renderDashboard = (s) => {
     const countries = s.countries.map(r => `<tr><td>${escapeHtml(r.country)}</td><td class="num">${r.count}</td></tr>`);
     const referrers = s.referrers.map(r => `<tr><td class="wrap">${escapeHtml(r.referrer)}</td><td class="num">${r.count}</td></tr>`);
     const cities = s.topCities.map(r => `<tr><td>${escapeHtml(r.city)}</td><td>${escapeHtml(r.region)}</td><td>${escapeHtml(r.country)}</td><td class="num">${r.count}</td></tr>`);
-    const recent = s.recentClicks.map(c => `<tr><td><a href="${clickHref(c.id)}">${escapeHtml(fmtTime(c.timestamp))}</a></td><td class="wrap">${escapeHtml(c.linkId)}</td><td>${escapeHtml(locationOf(c))}</td><td class="wrap">${escapeHtml(c.referrer)}</td><td class="wrap">${escapeHtml(truncate(c.userAgent, 60))}</td><td>${escapeHtml(c.ip)}</td></tr>`);
+    const recent = s.recentClicks.map(c => `<tr><td><a href="${clickHref(c.id)}">${escapeHtml(fmtTime(c.timestamp))}</a></td><td class="wrap">${escapeHtml(c.linkId)}</td><td>${escapeHtml(locationOf(c))}</td><td class="wrap">${escapeHtml(c.referrer)}</td><td class="wrap">${escapeHtml(truncate(c.userAgent, 60))}</td><td class="wrap">${escapeHtml(c.isp)}</td><td>${escapeHtml(c.ip)}</td></tr>`);
+    const sources = s.locationSources.map(r => `<tr><td>${escapeHtml(r.source)}</td><td class="num">${r.count}</td></tr>`);
 
     return `<!doctype html>
 <html lang="en">
@@ -293,9 +306,10 @@ ${STYLE}
 <div class="card"><h2>Top countries</h2>${table(['Country', 'Clicks'], countries)}</div>
 <div class="card"><h2>Top referrers</h2>${table(['Referrer', 'Clicks'], referrers)}</div>
 </div>
+<div class="card" style="margin-bottom:12px"><h2>Location sources</h2>${table(['Source', 'Clicks'], sources)}</div>
 <div class="card" style="margin-bottom:12px"><h2>Top cities</h2>${table(['City', 'Region', 'Country', 'Clicks'], cities)}</div>
 <div class="card"><h2>Top links</h2>${table(['Link', 'Clicks', 'Last click (UTC)'], topLinks)}</div>
-<div class="card" style="margin-top:12px"><h2>Recent clicks</h2>${table(['Time (UTC)', 'Link', 'Location', 'Referrer', 'User agent', 'IP'], recent)}</div>
+<div class="card" style="margin-top:12px"><h2>Recent clicks</h2>${table(['Time (UTC)', 'Link', 'Location', 'Referrer', 'User agent', 'ISP', 'IP'], recent)}</div>
 </main>
 </body>
 </html>`;

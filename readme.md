@@ -157,6 +157,13 @@ Auth is HTTP Basic: any username, password = `DASHBOARD_TOKEN`. If `DASHBOARD_TO
 | `DASHBOARD_TOKEN` | Password for `/dashboard` and `/api/stats` |
 | `PORT` | HTTP port (default `3000`; set by Render) |
 | `NEWRELIC_LICENSE` | Optional New Relic license key |
+| `IPINFO_TOKEN` | Optional [ipinfo.io](https://ipinfo.io) token for city-level click enrichment (see below) |
+
+### IP enrichment (ipinfo.io)
+
+Each click's IP is looked up on ipinfo.io (2s timeout, in-memory cache, private IPs skipped) to fill city, region, country, coordinates, postal code, timezone and ISP; the click is stored with `geoSource = 'ipinfo'`. If the lookup fails or returns no city, the worker falls back to the `geoip-lite` fields in the queue message (`geoSource = 'geoip-lite'`, or null when there are none). On HTTP 429/403 lookups pause for 10 minutes.
+
+`IPINFO_TOKEN` is optional. Without it the unauthenticated endpoint is used, which is heavily rate limited. New free tokens are 'Lite' tokens that return country only, so city enrichment then falls back to `geoip-lite`.
 
 Deploy with the included `render.yaml` blueprint (free web service, health check on `/health`).
 

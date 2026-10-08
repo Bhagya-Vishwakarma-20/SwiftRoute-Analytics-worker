@@ -41,6 +41,9 @@ model Click {
   longitude Float?
   timezone String?
   accuracyRadius Int?
+  isp String?
+  postal String?
+  geoSource String?
   timestamp DateTime @default(now())
 
 }

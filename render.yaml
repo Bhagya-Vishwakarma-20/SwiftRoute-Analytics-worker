@@ -16,3 +16,5 @@ services:
         generateValue: true
       - key: NEWRELIC_LICENSE
         sync: false
+      - key: IPINFO_TOKEN
+        sync: false
