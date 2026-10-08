@@ -2,6 +2,10 @@ const newrelic = require('newrelic');
 const { prisma } = require('../lib/primaClient');
 const { connectRabbitmq, Queue_name } = require('../lib/rabbitmq');
 
+const toStr = (v) => (typeof v === 'string' && v !== '' ? v : null);
+const toFloat = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+const toInt = (v) => (Number.isInteger(v) ? v : null);
+
 const handleMessage = async (message) => {
     console.log(message.content.toString())
     const parsedMessage = JSON.parse(message.content.toString());
@@ -13,6 +17,12 @@ const handleMessage = async (message) => {
             ip: parsedMessage.ip,
             userAgent: parsedMessage.userAgent,
             referrer: parsedMessage.referrer,
+            region: toStr(parsedMessage.region),
+            city: toStr(parsedMessage.city),
+            latitude: toFloat(parsedMessage.latitude),
+            longitude: toFloat(parsedMessage.longitude),
+            timezone: toStr(parsedMessage.timezone),
+            accuracyRadius: toInt(parsedMessage.accuracyRadius),
             timestamp: new Date(parsedMessage.timestamp)
         }
     })
@@ -51,4 +61,4 @@ const registerConsumer = async (channel) => {
 const startConsumer = async () => {
     await connectRabbitmq(registerConsumer);
 }
-module.exports = { startConsumer }
+module.exports = { startConsumer, handleMessage }

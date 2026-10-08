@@ -35,6 +35,12 @@ model Click {
   country String?
   userAgent String?
   referrer String?
+  region String?
+  city String?
+  latitude Float?
+  longitude Float?
+  timezone String?
+  accuracyRadius Int?
   timestamp DateTime @default(now())
 
 }

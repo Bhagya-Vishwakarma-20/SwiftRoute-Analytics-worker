@@ -29,7 +29,9 @@ The **analytics microservice** for [SwiftRoute](https://github.com/bhagya888/red
   │                                                                │
   │   1. Consume message from queue                                │
   │   2. Parse click payload                                       │
-  │      { linkId, ip, userAgent, referrer, timestamp }            │
+  │      { linkId, ip, country, region, city, latitude,            │
+  │        longitude, timezone, accuracyRadius, userAgent,         │
+  │        referrer, timestamp }  (geo fields optional)            │
   │   3. Persist to PostgreSQL via Prisma ORM                      │
   │   4. ACK on success / NACK (no requeue) on failure             │
   └──────────────────────────────┬─────────────────────────────────┘
@@ -42,7 +44,8 @@ The **analytics microservice** for [SwiftRoute](https://github.com/bhagya888/red
   │   ├── id (UUID)                                                │
   │   ├── linkId                                                   │
   │   ├── ip                                                       │
-  │   ├── country                                                  │
+  │   ├── country, region, city                                    │
+│   ├── latitude, longitude, timezone, accuracyRadius            │
   │   ├── userAgent                                                │
   │   ├── referrer                                                 │
   │   └── timestamp                                                │
@@ -138,8 +141,10 @@ The service also runs a small HTTP server (Node `http`, no extra dependencies) o
 | Endpoint | Auth | Description |
 |---|---|---|
 | `GET /health` | none | `200 {"status":"ok"}` - used as the Render health check |
-| `GET /api/stats` | Basic | JSON stats (totals, top links, countries, referrers, clicks per day, recent clicks) |
-| `GET /dashboard` | Basic | Self-contained HTML dashboard of the same stats |
+| `GET /api/stats` | Basic | JSON stats (totals, top links, top cities, countries, referrers, clicks per day, recent clicks) |
+| `GET /dashboard` | Basic | Self-contained HTML dashboard of the same stats (incl. top cities); links drill into the pages below |
+| `GET /dashboard/link?id=<linkId>` | Basic | Per-link detail: totals, first/last click, clicks by city and country, 30-day chart, latest 200 clicks |
+| `GET /dashboard/click/<uuid>` | Basic | Single click detail: all fields, approximate coordinates and an OpenStreetMap embed |
 
 Auth is HTTP Basic: any username, password = `DASHBOARD_TOKEN`. If `DASHBOARD_TOKEN` is unset, the protected endpoints return `503`.
 
