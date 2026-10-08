@@ -9,6 +9,7 @@ const handleMessage = async (message) => {
     await prisma.click.create({
         data: {
             linkId: parsedMessage.linkId,
+            country : parsedMessage.country,
             ip: parsedMessage.ip,
             userAgent: parsedMessage.userAgent,
             referrer: parsedMessage.referrer,
