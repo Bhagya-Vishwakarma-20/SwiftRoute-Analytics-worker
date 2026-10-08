@@ -131,6 +131,32 @@ docker run --name analytics-worker \
 
 
 
+## HTTP Endpoints
+
+The service also runs a small HTTP server (Node `http`, no extra dependencies) on `PORT` (default `3000`) so it can be hosted as a Render free web service.
+
+| Endpoint | Auth | Description |
+|---|---|---|
+| `GET /health` | none | `200 {"status":"ok"}` - used as the Render health check |
+| `GET /api/stats` | Basic | JSON stats (totals, top links, countries, referrers, clicks per day, recent clicks) |
+| `GET /dashboard` | Basic | Self-contained HTML dashboard of the same stats |
+
+Auth is HTTP Basic: any username, password = `DASHBOARD_TOKEN`. If `DASHBOARD_TOKEN` is unset, the protected endpoints return `503`.
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `AMQP_URL` | RabbitMQ connection URL |
+| `DASHBOARD_TOKEN` | Password for `/dashboard` and `/api/stats` |
+| `PORT` | HTTP port (default `3000`; set by Render) |
+| `NEWRELIC_LICENSE` | Optional New Relic license key |
+
+Deploy with the included `render.yaml` blueprint (free web service, health check on `/health`).
+
+---
+
 ## Key Highlights
 
 - **Decoupled microservice** — Deployed, versioned, and scaled independently from the redirect API.

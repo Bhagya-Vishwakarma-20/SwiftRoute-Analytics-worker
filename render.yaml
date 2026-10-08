@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: swiftroute-analytics
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    branch: render
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: AMQP_URL
+        sync: false
+      - key: DASHBOARD_TOKEN
+        generateValue: true
+      - key: NEWRELIC_LICENSE
+        sync: false

@@ -20,10 +20,13 @@ COPY --from=builder /app/generated ./generated
 COPY package*.json ./
 
 COPY index.js .
+COPY server.js .
 COPY newrelic.js .
 COPY consumer ./consumer
 COPY lib ./lib
 COPY prisma ./prisma
 
+
+EXPOSE 3000
 
 CMD ["node", "-r", "newrelic", "index.js"]

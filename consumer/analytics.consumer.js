@@ -20,10 +20,9 @@ const handleMessage = async (message) => {
 
 
 
-const startConsumer = async () => {
-    const channel = await connectRabbitmq();
+const registerConsumer = async (channel) => {
     channel.prefetch(20);
-    channel.consume(
+    await channel.consume(
         Queue_name,
         async (msg) => {
             if (!msg) return;
@@ -37,13 +36,19 @@ const startConsumer = async () => {
                     } catch (error) {
                         console.error("Failed to process message:", error.message);
                         newrelic.noticeError(error);
-                        channel.nack(msg, false, false);
+                        try {
+                            channel.nack(msg, false, false);
+                        } catch (nackError) {
+                            console.error("Failed to nack message:", nackError.message);
+                        }
                     }
                 })
         },
         { noAck: false }
-    
     )
+}
 
+const startConsumer = async () => {
+    await connectRabbitmq(registerConsumer);
 }
 module.exports = { startConsumer }
